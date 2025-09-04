@@ -86,28 +86,29 @@ parkinsons_scaler = pickle.load(open(f"{working_dir}/files/parkinsons_scaler.sav
 # --- Load Imaging Models ---
 @st.cache_resource
 def load_brain_tumor_model():
-    with CustomObjectScope({"dice_coef": lambda y_true,y_pred:0, "dice_loss": lambda y_true,y_pred:0}):
+    with CustomObjectScope({"dice_coef": lambda y_true, y_pred: 0, "dice_loss": lambda y_true, y_pred: 0}):
         return tf.keras.models.load_model("files/model.h5") if os.path.exists("files/model.h5") else None
+
 brain_model = load_brain_tumor_model()
 
 @st.cache_resource
 def load_breast_ultrasound_model():
     return tf.keras.models.load_model("files/my_model.h5") if os.path.exists("files/my_model.h5") else None
+
 breast_model = load_breast_ultrasound_model()
 
 # --- Sidebar ---
 with st.sidebar:
     selected = option_menu(
         "Vitalis",
-        ["🏠 Home", 
-         "🤖 Dr.ChatWell", 
-         "🩸 Diabetes Prediction", 
-         "❤️ Heart Disease Prediction", 
+        ["🏠 Home",
+         "🤖 Dr.ChatWell",
+         "🩸 Diabetes Prediction",
+         "❤️ Heart Disease Prediction",
          "🧍 Parkinsons Prediction",
-         "🧠 Brain Tumor Segmentation", 
-         "🩻 Breast Ultrasound Segmentation", 
+         "🧠 Brain Tumor Segmentation",
+         "🩻 Breast Ultrasound Segmentation",
          "ℹ️ About"],
-        # icons=["house", "robot", "activity", "heart", "person", "brain", "chest", "info-circle"],
         default_index=0,
     )
 
@@ -126,100 +127,140 @@ if selected == "🤖 Dr.ChatWell":
         st.session_state.chat_history = []
 
     for a, m in st.session_state.chat_history:
-        with st.chat_message(a): st.markdown(m)
+        with st.chat_message(a):
+            st.markdown(m)
 
     report = st.file_uploader("📄 Upload Report", type=["pdf", "jpg", "jpeg", "png"])
     if report:
         with st.spinner("Analyzing..."):
             if report.type == "application/pdf":
                 reader = PyPDF2.PdfReader(report)
-                text = "".join([p.extract_text() or "" for p in reader.pages])
+                text = "".join([(p.extract_text() or "") for p in reader.pages])
                 prompt = f"Analyze this health report:\n{text}\nSummarize, suggest lifestyle, disclaimer."
                 resp = call_gemini_api(prompt)
             else:
                 create_dir("uploaded_reports")
                 path = os.path.join("uploaded_reports", report.name)
-                with open(path, "wb") as f: f.write(report.getbuffer())
+                with open(path, "wb") as f:
+                    f.write(report.getbuffer())
                 img_b64 = get_base64_from_image(path)
-                resp = call_gemini_api("Analyze this health report image. Summarize + tips + disclaimer.", images=[img_b64])
+                resp = call_gemini_api(
+                    "Analyze this health report image. Summarize + tips + disclaimer.",
+                    images=[img_b64],
+                )
             st.session_state.chat_history.append(("assistant", resp))
-            with st.chat_message("assistant"): st.markdown(resp)
+            with st.chat_message("assistant"):
+                st.markdown(resp)
 
     if q := st.chat_input("Ask a question..."):
         st.session_state.chat_history.append(("user", q))
-        with st.chat_message("user"): st.markdown(q)
+        with st.chat_message("user"):
+            st.markdown(q)
         with st.spinner("Thinking..."):
-            resp = call_gemini_api(f"User asked: {q}\nGive safe health advice, no diagnosis, add disclaimer.")
+            resp = call_gemini_api(
+                f"User asked: {q}\nGive safe health advice, no diagnosis, add disclaimer."
+            )
         st.session_state.chat_history.append(("assistant", resp))
-        with st.chat_message("assistant"): st.markdown(resp)
+        with st.chat_message("assistant"):
+            st.markdown(resp)
 
 # --- Diabetes Prediction ---
 if selected == "🩸 Diabetes Prediction":
     st.title("🩸 Diabetes Prediction")
-    col1,col2,col3 = st.columns(3)
-    with col1: Pregnancies = st.text_input("Pregnancies")
-    with col2: Glucose = st.text_input("Glucose")
-    with col3: BloodPressure = st.text_input("Blood Pressure")
-    with col1: SkinThickness = st.text_input("Skin Thickness")
-    with col2: Insulin = st.text_input("Insulin")
-    with col3: BMI = st.text_input("BMI")
-    with col1: DPF = st.text_input("DPF")
-    with col2: Age = st.text_input("Age")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        Pregnancies = st.text_input("Pregnancies")
+    with col2:
+        Glucose = st.text_input("Glucose")
+    with col3:
+        BloodPressure = st.text_input("Blood Pressure")
+    with col1:
+        SkinThickness = st.text_input("Skin Thickness")
+    with col2:
+        Insulin = st.text_input("Insulin")
+    with col3:
+        BMI = st.text_input("BMI")
+    with col1:
+        DPF = st.text_input("DPF")
+    with col2:
+        Age = st.text_input("Age")
 
     if st.button("Get Result"):
         try:
-            vals = [float(x) for x in [Pregnancies,Glucose,BloodPressure,SkinThickness,Insulin,BMI,DPF,Age]]
+            vals = [float(x) for x in [Pregnancies, Glucose, BloodPressure, SkinThickness, Insulin, BMI, DPF, Age]]
             scaled = diabetes_scaler.transform([vals])
             pred = diabetes_model.predict(scaled)[0]
-            res = "Diabetic" if pred==1 else "Not Diabetic"
+            res = "Diabetic" if pred == 1 else "Not Diabetic"
             st.success(res)
             st.markdown(call_gemini_api(get_disease_specific_prompt("Diabetes")))
-        except Exception as e: st.error(e)
+        except Exception as e:
+            st.error(e)
 
 # --- Heart Disease Prediction ---
 if selected == "❤️ Heart Disease Prediction":
     st.title("❤️ Heart Disease Prediction")
-    col1,col2,col3 = st.columns(3)
-    with col1: age = st.text_input("Age")
-    with col2: sex = st.text_input("Sex")
-    with col3: cp = st.text_input("Chest Pain")
-    with col1: trestbps = st.text_input("Rest BP")
-    with col2: chol = st.text_input("Cholesterol")
-    with col3: fbs = st.text_input("FBS > 120")
-    with col1: restecg = st.text_input("Rest ECG")
-    with col2: thalach = st.text_input("Max HR")
-    with col3: exang = st.text_input("Exercise Angina")
-    with col1: oldpeak = st.text_input("Oldpeak")
-    with col2: slope = st.text_input("Slope")
-    with col3: ca = st.text_input("Vessels")
-    with col1: thal = st.text_input("Thal")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        age = st.text_input("Age")
+    with col2:
+        sex = st.text_input("Sex")
+    with col3:
+        cp = st.text_input("Chest Pain")
+    with col1:
+        trestbps = st.text_input("Rest BP")
+    with col2:
+        chol = st.text_input("Cholesterol")
+    with col3:
+        fbs = st.text_input("FBS > 120")
+    with col1:
+        restecg = st.text_input("Rest ECG")
+    with col2:
+        thalach = st.text_input("Max HR")
+    with col3:
+        exang = st.text_input("Exercise Angina")
+    with col1:
+        oldpeak = st.text_input("Oldpeak")
+    with col2:
+        slope = st.text_input("Slope")
+    with col3:
+        ca = st.text_input("Vessels")
+    with col1:
+        thal = st.text_input("Thal")
 
     if st.button("Get Result"):
         try:
-            vals = [float(x) for x in [age,sex,cp,trestbps,chol,fbs,restecg,thalach,exang,oldpeak,slope,ca,thal]]
+            vals = [float(x) for x in [age, sex, cp, trestbps, chol, fbs, restecg, thalach, exang, oldpeak, slope, ca, thal]]
             scaled = heart_scaler.transform([vals])
             pred = heart_model.predict(scaled)[0]
-            res = "Heart Disease" if pred==1 else "No Heart Disease"
+            res = "Heart Disease" if pred == 1 else "No Heart Disease"
             st.success(res)
             st.markdown(call_gemini_api(get_disease_specific_prompt("Heart Disease")))
-        except Exception as e: st.error(e)
+        except Exception as e:
+            st.error(e)
 
 # --- Parkinsons Prediction ---
 if selected == "🧍 Parkinsons Prediction":
     st.title("🧠 Parkinson's Prediction")
-    feats = ["fo","fhi","flo","Jitter(%)","Jitter(Abs)","RAP","PPQ","DDP","Shimmer","Shimmer(dB)","APQ3","APQ5","APQ","DDA","NHR","HNR","RPDE","DFA","spread1","spread2","D2","PPE"]
-    vals=[]; cols=st.columns(5)
-    for i,f in enumerate(feats):
-        with cols[i%5]: vals.append(st.text_input(f))
+    feats = [
+        "fo", "fhi", "flo", "Jitter(%)", "Jitter(Abs)", "RAP", "PPQ", "DDP",
+        "Shimmer", "Shimmer(dB)", "APQ3", "APQ5", "APQ", "DDA", "NHR", "HNR",
+        "RPDE", "DFA", "spread1", "spread2", "D2", "PPE"
+    ]
+    vals = []
+    cols = st.columns(5)
+    for i, f in enumerate(feats):
+        with cols[i % 5]:
+            vals.append(st.text_input(f))
     if st.button("Get Result"):
         try:
-            vals=[float(x) for x in vals]
+            vals = [float(x) for x in vals]
             scaled = parkinsons_scaler.transform([vals])
             pred = parkinsons_model.predict(scaled)[0]
-            res = "Parkinson's Disease" if pred==1 else "No Parkinson's"
+            res = "Parkinson's Disease" if pred == 1 else "No Parkinson's"
             st.success(res)
             st.markdown(call_gemini_api(get_disease_specific_prompt("Parkinsons")))
-        except Exception as e: st.error(e)
+        except Exception as e:
+            st.error(e)
 
 # --- Brain Tumor Segmentation ---
 if selected == "🧠 Brain Tumor Segmentation":
@@ -227,24 +268,32 @@ if selected == "🧠 Brain Tumor Segmentation":
     if not brain_model:
         st.warning("Model not found")
     else:
-        img_file = st.file_uploader("Upload Brain MRI", type=["jpg","jpeg","png"])
+        img_file = st.file_uploader("Upload Brain MRI", type=["jpg", "jpeg", "png"])
         if img_file and st.button("Segment & Analyze"):
             create_dir("uploaded_images")
-            path=os.path.join("uploaded_images", img_file.name)
-            with open(path,"wb") as f: f.write(img_file.getbuffer())
-            img=cv2.imread(path)
-            resized=cv2.resize(img,(256,256))/255.0
-            inp=np.expand_dims(resized,0)
-            pred=brain_model.predict(inp)[0]
-            mask=(pred>=0.5).astype(np.uint8)*255
-            mask=np.squeeze(mask)
+            path = os.path.join("uploaded_images", img_file.name)
+            with open(path, "wb") as f:
+                f.write(img_file.getbuffer())
+            img = cv2.imread(path)  # BGR
+            # use float32 for model input
+            resized = cv2.resize(img, (256, 256)).astype(np.float32) / 255.0
+            inp = np.expand_dims(resized, 0)
+            pred = brain_model.predict(inp)[0]
+            mask = (pred >= 0.5).astype(np.uint8) * 255
+            mask = np.squeeze(mask)
+
             create_dir("generated_masks")
-            mask_path=os.path.join("generated_masks","mask_"+img_file.name)
-            cv2.imwrite(mask_path,mask)
-            st.image(path,caption="MRI",width=400)
-            st.image(mask_path,caption="Predicted Mask",width=400)
-            img_b64=get_base64_from_image(path); mask_b64=get_base64_from_image(mask_path)
-            st.markdown(call_gemini_api(get_disease_specific_prompt("Brain Tumor"), images=[img_b64,mask_b64]))
+            mask_path = os.path.join("generated_masks", "mask_" + img_file.name)
+            cv2.imwrite(mask_path, mask)
+
+            st.image(path, caption="MRI", width=400)
+            st.image(mask_path, caption="Predicted Mask", width=400)
+
+            img_b64 = get_base64_from_image(path)
+            mask_b64 = get_base64_from_image(mask_path)
+            st.markdown(
+                call_gemini_api(get_disease_specific_prompt("Brain Tumor"), images=[img_b64, mask_b64])
+            )
 
 # --- Breast Ultrasound Segmentation ---
 if selected == "🩻 Breast Ultrasound Segmentation":
@@ -252,37 +301,54 @@ if selected == "🩻 Breast Ultrasound Segmentation":
     if not breast_model:
         st.warning("Model not found")
     else:
-        img_file = st.file_uploader("Upload Ultrasound", type=["jpg","jpeg","png"])
+        img_file = st.file_uploader("Upload Ultrasound", type=["jpg", "jpeg", "png"])
         if img_file and st.button("Segment & Analyze"):
             create_dir("uploaded_ultrasound")
-            path=os.path.join("uploaded_ultrasound", img_file.name)
-            with open(path,"wb") as f: f.write(img_file.getbuffer())
-            img=cv2.imread(path,cv2.IMREAD_GRAYSCALE)
-            resized=cv2.resize(img,(128,128))/255.0
-            inp=np.expand_dims(np.expand_dims(resized,-1),0)
-            pred=breast_model.predict(inp)[0]
-            mask=(pred>=0.5).astype(np.uint8)*255
-            mask=np.squeeze(mask)
+            path = os.path.join("uploaded_ultrasound", img_file.name)
+            with open(path, "wb") as f:
+                f.write(img_file.getbuffer())
+
+            # Read as grayscale
+            img = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
+
+            # float32 [0,1] for model input
+            resized = cv2.resize(img, (128, 128)).astype(np.float32) / 255.0
+            inp = np.expand_dims(np.expand_dims(resized, -1), 0)
+            pred = breast_model.predict(inp)[0]
+            mask = (pred >= 0.5).astype(np.uint8) * 255
+            mask = np.squeeze(mask)
+
             create_dir("ultrasound_masks")
-            mask_path=os.path.join("ultrasound_masks","mask_"+img_file.name)
-            cv2.imwrite(mask_path,mask)
-            st.image(path,caption="Ultrasound",width=400)
-            st.image(mask_path,caption="Predicted Mask",width=400)
-            overlay=cv2.cvtColor(resized*255,cv2.COLOR_GRAY2BGR)
-            heat=cv2.applyColorMap(mask,cv2.COLORMAP_JET)
-            blend=cv2.addWeighted(overlay.astype(np.uint8),0.7,heat,0.3,0)
-            st.image(blend,caption="Overlay",width=400)
-            img_b64=get_base64_from_image(path); mask_b64=get_base64_from_image(mask_path)
-            st.markdown(call_gemini_api(get_disease_specific_prompt("Breast Ultrasound"), images=[img_b64,mask_b64]))
+            mask_path = os.path.join("ultrasound_masks", "mask_" + img_file.name)
+            cv2.imwrite(mask_path, mask)
+
+            st.image(path, caption="Ultrasound", width=400)
+            st.image(mask_path, caption="Predicted Mask", width=400)
+
+            # ---- FIXED: convert dtype before cvtColor/overlay ----
+            overlay_u8 = np.clip(resized * 255.0, 0, 255).astype(np.uint8)  # (H, W) uint8
+            overlay_bgr = cv2.cvtColor(overlay_u8, cv2.COLOR_GRAY2BGR)      # BGR
+            heat = cv2.applyColorMap(mask, cv2.COLORMAP_JET)                 # BGR
+            blend_bgr = cv2.addWeighted(overlay_bgr, 0.7, heat, 0.3, 0.0)
+            blend_rgb = cv2.cvtColor(blend_bgr, cv2.COLOR_BGR2RGB)
+            st.image(blend_rgb, caption="Overlay", width=400)
+
+            img_b64 = get_base64_from_image(path)
+            mask_b64 = get_base64_from_image(mask_path)
+            st.markdown(
+                call_gemini_api(get_disease_specific_prompt("Breast Ultrasound"), images=[img_b64, mask_b64])
+            )
 
 # --- About ---
 if selected == "ℹ️ About":
     st.title("🌟 About This Project")
-    st.markdown("""
+    st.markdown(
+        """
     A unified AI-powered healthcare assistant:  
     - 🩸 Diabetes | ❤️ Heart | 🧠 Parkinson’s predictions  
     - 🖼️ Brain Tumor & Breast Lesion Segmentation  
     - 🤖 Dr. ChatWell Health Assistant (chat + report uploads)  
 
     ⚠️ This is **not a replacement for doctors**. Always seek medical advice from professionals.
-    """)
+    """
+    )
