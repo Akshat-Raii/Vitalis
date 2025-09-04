@@ -78,7 +78,6 @@ PyPDF2
 python-dateutil
 python-dotenv
 pytz
-pywin32
 pyzmq
 referencing
 requests
@@ -117,3 +116,4 @@ websockets
 Werkzeug
 wrapt
 xgboost
+
