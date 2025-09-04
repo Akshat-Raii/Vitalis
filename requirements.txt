@@ -1,12 +1,13 @@
 streamlit
 streamlit-option-menu
 numpy
-opencv
+opencv-python-headless==4.10.0.84
 tensorflow
 requests
 python-dotenv
 PyPDF2
 xgboost
 scikit-learn
+
 
 
