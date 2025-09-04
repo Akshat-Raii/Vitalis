@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 import PyPDF2
 
 # Set page config
-st.set_page_config(page_title="Vitalis", layout="wide", page_icon="🧑‍⚕️")
+st.set_page_config(page_title="Vitalis", layout="wide", page_icon="./image/health-report.png")
 
 # Load environment variables
 load_dotenv()
@@ -113,7 +113,7 @@ with st.sidebar:
 
 # --- Home ---
 if selected == "🏠 Home":
-    st.title("🏥 Vitalis")
+    st.title("🚑 Vitalis")
     st.markdown("Early detection + AI insights for better health 💡")
     st.image("image/cover.gif")
 
