@@ -25,8 +25,14 @@ if not API_KEY:
     st.error("🔴 GEMINI_API_KEY not set in .env")
     st.stop()
 
-GEMINI_API_URL_TEXT = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key={API_KEY}"
-GEMINI_API_URL_VISION = GEMINI_API_URL_TEXT
+MODEL_NAME = "gemini-2.5-flash"        # good default, text + vision
+# or: MODEL_NAME = "gemini-flash-latest"
+# or: MODEL_NAME = "gemini-2.0-flash"
+
+GEMINI_API_URL_TEXT = (
+    f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL_NAME}:generateContent?key={API_KEY}"
+)
+GEMINI_API_URL_VISION = GEMINI_API_URL_TEXT  # same model for multimodal
 
 # --- Helper Functions ---
 def create_dir(path):
