@@ -27,7 +27,7 @@ if not API_KEY:
 genai.configure(api_key=API_KEY)
 
 # 3. Define the Model (Using the 2.0 Experimental Flash model as requested)
-MODEL_NAME = "gemini-2.0-flash-exp" 
+MODEL_NAME = "gemini-2.0-flash" 
 
 # --- Helper Functions ---
 def create_dir(path):
