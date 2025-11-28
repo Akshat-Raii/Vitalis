@@ -6,28 +6,30 @@ import numpy as np
 import cv2
 import tensorflow as tf
 from tensorflow.keras.utils import CustomObjectScope
-import requests
 import base64
-import json
 from dotenv import load_dotenv
 import PyPDF2
+# NEW: Import the official Google SDK
+import google.generativeai as genai
 
 # 1. Load Environment Variables
 load_dotenv()
 
 st.set_page_config(page_title="Vitalis", layout="wide", page_icon="./image/health-report.png")
 
-# 2. Secure API Key Check
+# 2. Configure Google GenAI SDK
 API_KEY = os.environ.get("GEMINI_API_KEY")
 if not API_KEY:
     st.error("🚨 Error: GEMINI_API_KEY is missing. Please create a .env file and add your key.")
     st.stop()
 
-# 3. FIXED: Use the correct stable model name
-MODEL_NAME = "gemini-1.5-flash" 
+# Configure the SDK with your key
+genai.configure(api_key=API_KEY)
 
-GEMINI_API_URL = f"https://generativelanguage.googleapis.com/models/{MODEL_NAME}:generateContent?key={API_KEY}"
+# 3. Define the Model (Using the 2.0 Experimental Flash model as requested)
+MODEL_NAME = "gemini-2.0-flash-exp" 
 
+# --- Helper Functions ---
 def create_dir(path):
     if not os.path.exists(path):
         os.makedirs(path)
@@ -36,36 +38,31 @@ def get_base64_from_image(image_path):
     with open(image_path, "rb") as f:
         return base64.b64encode(f.read()).decode("utf-8")
 
+# UPDATED: Replaced raw requests with the SDK
 def call_gemini_api(prompt, images=None):
-    headers = {"Content-Type": "application/json"}
-    payload = {"contents": [{"parts": []}]}
-    
-    # Add text prompt
-    payload["contents"][0]["parts"].append({"text": prompt})
-    
-    # Add images if provided
-    if images:
-        for img in images:
-            payload["contents"][0]["parts"].append(
-                {"inline_data": {"mime_type": "image/jpeg", "data": img}}
-            )
-
     try:
-        r = requests.post(GEMINI_API_URL, headers=headers, data=json.dumps(payload))
+        # Initialize the model
+        model = genai.GenerativeModel(MODEL_NAME)
         
-        # 4. Better Error Handling
-        if r.status_code != 200:
-            error_msg = r.json().get('error', {}).get('message', r.text)
-            return f"⚠️ API Error ({r.status_code}): {error_msg}"
-            
-        result = r.json()
-        if "candidates" in result and result["candidates"]:
-            return result["candidates"][0]["content"]["parts"][0]["text"]
-        else:
-            return "⚠️ No response generated. The model might have blocked the content."
-            
+        # Prepare the content list
+        content = [prompt]
+        
+        # If images are provided (as base64 strings from existing code), decode them for the SDK
+        if images:
+            for img_b64 in images:
+                # The SDK prefers raw bytes for inline data
+                img_bytes = base64.b64decode(img_b64)
+                content.append({
+                    "mime_type": "image/jpeg",
+                    "data": img_bytes
+                })
+
+        # Generate content
+        response = model.generate_content(content)
+        return response.text
+
     except Exception as e:
-        return f"⚠️ Connection Error: {e}"
+        return f"⚠️ AI Error: {str(e)}"
 
 # --- Disease-specific Prompts ---
 def get_disease_specific_prompt(disease):
@@ -82,7 +79,6 @@ def get_disease_specific_prompt(disease):
 # --- Load ML Models ---
 working_dir = os.path.dirname(os.path.abspath(__file__))
 
-# Helper to load models safely
 def safe_load_pickle(path):
     return pickle.load(open(path, "rb")) if os.path.exists(path) else None
 
@@ -172,7 +168,6 @@ if selected == "🤖 Dr.ChatWell":
 # --- Diabetes Prediction ---
 if selected == "🩸 Diabetes Prediction":
     st.title("🩸 Diabetes Prediction")
-    # ... (Inputs maintained) ...
     col1, col2, col3 = st.columns(3)
     with col1: Pregnancies = st.text_input("Pregnancies", "0")
     with col2: Glucose = st.text_input("Glucose", "0")
@@ -200,7 +195,6 @@ if selected == "🩸 Diabetes Prediction":
 # --- Heart Disease Prediction ---
 if selected == "❤️ Heart Disease Prediction":
     st.title("❤️ Heart Disease Prediction")
-    # ... (Inputs maintained - abbreviated for brevity) ...
     col1, col2, col3 = st.columns(3)
     age = col1.text_input("Age", "0")
     sex = col2.text_input("Sex", "0")
