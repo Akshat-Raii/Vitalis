@@ -21,7 +21,7 @@ if not API_KEY:
     st.error("GEMINI_API_KEY not set in .env")
     st.stop()
 
-MODEL_NAME = "gemini-1.5-flash"
+MODEL_NAME = "gemini-2.0-flash"
 
 GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL_NAME}:generateContent?key={API_KEY}"
 
