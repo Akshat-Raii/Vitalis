@@ -1,4 +1,3 @@
-# app.py
 import os
 import pickle
 import streamlit as st
@@ -13,28 +12,19 @@ import json
 from dotenv import load_dotenv
 import PyPDF2
 
-# Set page config
-st.set_page_config(page_title="Vitalis", layout="wide", page_icon="./image/health-report.png")
-
-# Load environment variables
 load_dotenv()
 
-# --- Gemini API Configuration ---
+st.set_page_config(page_title="Vitalis", layout="wide", page_icon="./image/health-report.png")
+
 API_KEY = os.environ.get("GEMINI_API_KEY")
 if not API_KEY:
-    st.error("🔴 GEMINI_API_KEY not set in .env")
+    st.error("GEMINI_API_KEY not set in .env")
     st.stop()
 
-MODEL_NAME = "gemini-3-pro-preview"        # good default, text + vision
-# or: MODEL_NAME = "gemini-flash-latest"
-# or: MODEL_NAME = "gemini-2.0-flash"
+MODEL_NAME = "gemini-1.5-flash"
 
-GEMINI_API_URL_TEXT = (
-    f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL_NAME}:generateContent?key={API_KEY}"
-)
-GEMINI_API_URL_VISION = GEMINI_API_URL_TEXT  # same model for multimodal
+GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL_NAME}:generateContent?key={API_KEY}"
 
-# --- Helper Functions ---
 def create_dir(path):
     if not os.path.exists(path):
         os.makedirs(path)
@@ -46,26 +36,25 @@ def get_base64_from_image(image_path):
 def call_gemini_api(prompt, images=None):
     headers = {"Content-Type": "application/json"}
     payload = {"contents": [{"parts": []}]}
+    
+    payload["contents"][0]["parts"].append({"text": prompt})
+    
     if images:
-        payload["contents"][0]["parts"].append({"text": prompt})
         for img in images:
             payload["contents"][0]["parts"].append(
                 {"inline_data": {"mime_type": "image/jpeg", "data": img}}
             )
-        api_url = GEMINI_API_URL_VISION
-    else:
-        payload["contents"][0]["parts"].append({"text": prompt})
-        api_url = GEMINI_API_URL_TEXT
 
     try:
-        r = requests.post(api_url, headers=headers, data=json.dumps(payload))
+        r = requests.post(GEMINI_API_URL, headers=headers, data=json.dumps(payload))
         r.raise_for_status()
         result = r.json()
         return result["candidates"][0]["content"]["parts"][0]["text"]
+    except requests.exceptions.HTTPError as e:
+        return f"API Error {r.status_code}: {r.text}"
     except Exception as e:
         return f"Error: {e}"
 
-# --- Disease-specific Prompts ---
 def get_disease_specific_prompt(disease):
     disclaimer = "⚠️ Disclaimer: This is not medical advice. Please consult a doctor."
     prompts = {
@@ -77,7 +66,6 @@ def get_disease_specific_prompt(disease):
     }
     return prompts.get(disease, disclaimer)
 
-# --- Load ML Models ---
 working_dir = os.path.dirname(os.path.abspath(__file__))
 
 diabetes_model = pickle.load(open(f"{working_dir}/files/xgboost_diabetes_model.sav", "rb"))
@@ -89,7 +77,6 @@ heart_scaler = pickle.load(open(f"{working_dir}/files/heart_scaler.sav", "rb"))
 parkinsons_model = pickle.load(open(f"{working_dir}/files/xgboost_parkinsons_model.sav", "rb"))
 parkinsons_scaler = pickle.load(open(f"{working_dir}/files/parkinsons_scaler.sav", "rb"))
 
-# --- Load Imaging Models ---
 @st.cache_resource
 def load_brain_tumor_model():
     with CustomObjectScope({"dice_coef": lambda y_true, y_pred: 0, "dice_loss": lambda y_true, y_pred: 0}):
@@ -103,7 +90,6 @@ def load_breast_ultrasound_model():
 
 breast_model = load_breast_ultrasound_model()
 
-# --- Sidebar ---
 with st.sidebar:
     selected = option_menu(
         "Vitalis",
@@ -118,13 +104,12 @@ with st.sidebar:
         default_index=0,
     )
 
-# --- Home ---
 if selected == "🏠 Home":
     st.title("🚑 Vitalis")
     st.markdown("Early detection + AI insights for better health 💡")
-    st.image("image/cover.gif")
+    if os.path.exists("image/cover.gif"):
+        st.image("image/cover.gif")
 
-# --- AI Health Assistant ---
 if selected == "🤖 Dr.ChatWell":
     st.title("🤖 Dr.ChatWell")
     st.write("Chat with AI or upload your **full body report (PDF/Image)**")
@@ -170,7 +155,6 @@ if selected == "🤖 Dr.ChatWell":
         with st.chat_message("assistant"):
             st.markdown(resp)
 
-# --- Diabetes Prediction ---
 if selected == "🩸 Diabetes Prediction":
     st.title("🩸 Diabetes Prediction")
     col1, col2, col3 = st.columns(3)
@@ -202,7 +186,6 @@ if selected == "🩸 Diabetes Prediction":
         except Exception as e:
             st.error(e)
 
-# --- Heart Disease Prediction ---
 if selected == "❤️ Heart Disease Prediction":
     st.title("❤️ Heart Disease Prediction")
     col1, col2, col3 = st.columns(3)
@@ -244,7 +227,6 @@ if selected == "❤️ Heart Disease Prediction":
         except Exception as e:
             st.error(e)
 
-# --- Parkinsons Prediction ---
 if selected == "🧍 Parkinsons Prediction":
     st.title("🧠 Parkinson's Prediction")
     feats = [
@@ -268,7 +250,6 @@ if selected == "🧍 Parkinsons Prediction":
         except Exception as e:
             st.error(e)
 
-# --- Brain Tumor Segmentation ---
 if selected == "🧠 Brain Tumor Segmentation":
     st.title("🧠 Brain Tumor Segmentation")
     if not brain_model:
@@ -280,8 +261,7 @@ if selected == "🧠 Brain Tumor Segmentation":
             path = os.path.join("uploaded_images", img_file.name)
             with open(path, "wb") as f:
                 f.write(img_file.getbuffer())
-            img = cv2.imread(path)  # BGR
-            # use float32 for model input
+            img = cv2.imread(path)
             resized = cv2.resize(img, (256, 256)).astype(np.float32) / 255.0
             inp = np.expand_dims(resized, 0)
             pred = brain_model.predict(inp)[0]
@@ -301,7 +281,6 @@ if selected == "🧠 Brain Tumor Segmentation":
                 call_gemini_api(get_disease_specific_prompt("Brain Tumor"), images=[img_b64, mask_b64])
             )
 
-# --- Breast Ultrasound Segmentation ---
 if selected == "🩻 Breast Ultrasound Segmentation":
     st.title("🩻 Breast Ultrasound Segmentation")
     if not breast_model:
@@ -314,10 +293,8 @@ if selected == "🩻 Breast Ultrasound Segmentation":
             with open(path, "wb") as f:
                 f.write(img_file.getbuffer())
 
-            # Read as grayscale
             img = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
 
-            # float32 [0,1] for model input
             resized = cv2.resize(img, (128, 128)).astype(np.float32) / 255.0
             inp = np.expand_dims(np.expand_dims(resized, -1), 0)
             pred = breast_model.predict(inp)[0]
@@ -331,10 +308,9 @@ if selected == "🩻 Breast Ultrasound Segmentation":
             st.image(path, caption="Ultrasound", width=400)
             st.image(mask_path, caption="Predicted Mask", width=400)
 
-            # ---- FIXED: convert dtype before cvtColor/overlay ----
-            overlay_u8 = np.clip(resized * 255.0, 0, 255).astype(np.uint8)  # (H, W) uint8
-            overlay_bgr = cv2.cvtColor(overlay_u8, cv2.COLOR_GRAY2BGR)      # BGR
-            heat = cv2.applyColorMap(mask, cv2.COLORMAP_JET)                 # BGR
+            overlay_u8 = np.clip(resized * 255.0, 0, 255).astype(np.uint8)
+            overlay_bgr = cv2.cvtColor(overlay_u8, cv2.COLOR_GRAY2BGR)
+            heat = cv2.applyColorMap(mask, cv2.COLORMAP_JET)
             blend_bgr = cv2.addWeighted(overlay_bgr, 0.7, heat, 0.3, 0.0)
             blend_rgb = cv2.cvtColor(blend_bgr, cv2.COLOR_BGR2RGB)
             st.image(blend_rgb, caption="Overlay", width=400)
@@ -345,15 +321,14 @@ if selected == "🩻 Breast Ultrasound Segmentation":
                 call_gemini_api(get_disease_specific_prompt("Breast Ultrasound"), images=[img_b64, mask_b64])
             )
 
-# --- About ---
 if selected == "ℹ️ About":
     st.title("🌟 About This Project")
     st.markdown(
         """
-    A unified AI-powered healthcare assistant:  
-    - 🩸 Diabetes | ❤️ Heart | 🧠 Parkinson’s predictions  
-    - 🖼️ Brain Tumor & Breast Lesion Segmentation  
-    - 🤖 Dr. ChatWell Health Assistant (chat + report uploads)  
+    A unified AI-powered healthcare assistant:
+    - 🩸 Diabetes | ❤️ Heart | 🧠 Parkinson’s predictions
+    - 🖼️ Brain Tumor & Breast Lesion Segmentation
+    - 🤖 Dr. ChatWell Health Assistant (chat + report uploads)
 
     ⚠️ This is **not a replacement for doctors**. Always seek medical advice from professionals.
     """
