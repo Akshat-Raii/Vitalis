@@ -8,6 +8,6 @@ python-dotenv
 PyPDF2
 xgboost
 scikit-learn
-
+google-generativeai
 
 
