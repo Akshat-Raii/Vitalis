@@ -25,7 +25,7 @@ if not API_KEY:
     st.error("🔴 GEMINI_API_KEY not set in .env")
     st.stop()
 
-MODEL_NAME = "gemini-2.5-flash"        # good default, text + vision
+MODEL_NAME = "gemini-3-pro-preview"        # good default, text + vision
 # or: MODEL_NAME = "gemini-flash-latest"
 # or: MODEL_NAME = "gemini-2.0-flash"
 
