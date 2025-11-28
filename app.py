@@ -26,7 +26,7 @@ if not API_KEY:
 # 3. FIXED: Use the correct stable model name
 MODEL_NAME = "gemini-1.5-flash" 
 
-GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL_NAME}:generateContent?key={API_KEY}"
+GEMINI_API_URL = f"https://generativelanguage.googleapis.com/models/{MODEL_NAME}:generateContent?key={API_KEY}"
 
 def create_dir(path):
     if not os.path.exists(path):
